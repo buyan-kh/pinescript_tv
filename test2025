@@ -182,7 +182,7 @@ custom91 = custom9 - 1
 // array.set(part2, 5, altValue6)
 // array.set(part2, 6, altValue7)
 
-// for i = 0 to (array.size(part1) - 1)
+ for i = 0 to (array.size(part1) - 1)
 //     for j = 0 to (array.size(part2) - 1)
 //         value1 = array.get(part1, i)
 //         value2 = array.get(part2, j)
@@ -203,7 +203,8 @@ custom91 = custom9 - 1
 //         goldenValue6 := array.get(goldenValues, 5)
 
 
-// ratios
+//
+ ratios
 
 enable_0 = input.bool(true, title="", group="RATIOS", inline="Level0")
 ratio_0 = input.float(0.0, title="", group="RATIOS", inline="Level0")
