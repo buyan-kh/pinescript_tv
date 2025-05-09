@@ -1,0 +1,437 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © creative900
+
+//@version=6
+indicator("test 2025 indicator", shorttitle="test 2025", overlay=true, max_bars_back=5000)
+
+start_date = input.time(timestamp("01 Nov 2023"), "Ehleh Tseg", confirm=true, group="RANGE")
+end_date = input.time(timestamp("28 Nov 2023"), "Tugsuh tseg", confirm=true, group="RANGE")
+
+
+// options
+ext = input.string("None", title="Extend", options=["None", "Right", "Left", "Both"], group="OPTIONS")
+use_close = input.bool(false, title="Use Close Values", group="OPTIONS", tooltip="Uses Close value as High and Low")
+draw_trend = input.bool(true, title="Draw Trend", group="OPTIONS", inline="Trend")
+trend_color = input.color(color.gray, title="", group="OPTIONS", inline="Trend")    
+trend_style = input.string("Dotted", title="", group="OPTIONS", inline="Trend", options=["Solid", "Dotted", "Dashed"])
+
+show_date_range = input.bool(false, title="Date Range", group="OPTIONS", inline="DateRange")
+date_range_color = input.color(color.gray, title="", group="OPTIONS", inline="DateRange")
+
+label_enabled = input.bool(false, title="Labels", group="OPTIONS", inline="Labels")
+label_pos = input.string("Left", title="", group="OPTIONS", inline="Labels", options=["Left", "Right"])
+
+show_retracement = input.bool(true, title="Retracement", group="OPTIONS", inline="Retracement")
+retracement_color = input.color(color.gray, title="", group="OPTIONS", inline="Retracement")
+retracement_style = input.string("Dotted", title="", group="OPTIONS", inline="Retracement", options=["Solid", "Dotted", "Dashed"])
+
+ret_label = input.bool(true, title="Show Label", group="OPTIONS", inline="Retracement")
+
+var float test = na
+var float max_val = na
+var float min_val = na
+var int min_idx = na
+var int max_idx = na
+var lines = array.new<line>(na)
+var labels = array.new<label>(na)
+
+
+style_of(x) => x=="Dotted"?line.style_dotted:x=="Dashed"?line.style_dashed:line.style_solid
+lowest(x, i, o) =>
+    var float v = na
+    var int idx = na
+    if i > 1
+        for a=o to o+i-1
+            if x[a] < v or na(v)
+                v := x[a]
+                idx := a
+    [v, idx]
+
+highest(x, i, o) =>
+    var float v = na
+    var int idx = na
+    if i > 1
+        for a=o to o+i-1
+            if x[a] > v or na(v)
+                v := x[a]
+                idx := a
+    [v, idx]
+
+round(x, f=0) =>
+    var float v = na
+    if f==0
+        v := math.floor(x / syminfo.mintick) * syminfo.mintick
+    else
+        v := math.floor(x * math.pow(f, 2)) / math.pow(f, 2)
+    v
+
+getBarIndexAtTime(t) =>
+    var int bi = na
+    if time[1] <= t and time >= t and na(bi)
+        bi := bar_index
+    bi
+
+start_idx = getBarIndexAtTime(start_date)
+end_idx = getBarIndexAtTime(end_date)
+bars = math.abs(start_idx - end_idx)
+
+// get max value
+h = use_close?close:high
+l = use_close?close:low
+
+if time >= start_date and time <= end_date
+    if na(max_val) or h > max_val
+        max_val := h
+        max_idx := bar_index
+    if na(min_val) or l < min_val
+        min_val := l
+        min_idx := bar_index
+
+    
+
+uptrend = max_idx > min_idx
+sz = array.size(lines)
+if sz > 0
+    for i=sz - 1 to 0
+        line.delete(array.get(lines, i))
+sz := array.size(labels)
+if sz > 0
+    for i=sz - 1 to 0
+        label.delete(array.get(labels, i))
+start_index = math.min(min_idx, max_idx)
+end_index = math.max(min_idx, max_idx)
+diff = math.abs(max_val - min_val)
+_50 = min_val + diff * 0.5
+// _ext = ext == "Right"?extend.right:ext == "Left"?extend.left:ext == "Both"?extend.both:extend.none
+_ext = extend.right
+offset = bar_index > 0?bar_index - end_idx:1
+odiff = bar_index - end_index - offset
+[mid_low, mid_low_idx] = lowest(l, odiff, offset)
+[mid_high, mid_high_idx] = highest(h, odiff, offset)
+mid_point = uptrend?mid_low:mid_high
+mid_point_idx = uptrend?mid_low_idx:mid_high_idx
+mid_idx = bar_index - mid_point_idx - offset
+
+//ratios
+var float _r0 = 0.0
+var float _r00 = 0.0
+var float _r1 = 0.0
+var float _r2 = 0.0
+var float _r3 = 0.0
+var float _r4 = 0.0
+var float _r5 = 0.0
+var float _r6 = 0.0
+var float _r7 = 0.0
+var float _r8 = 0.0
+var float _r9 = 0.0
+var float _r10 = 0.0
+var float _r11 = 0.0
+var float _r12 = 0.0
+var float _r13 = 0.0
+var float _ret = 0.0
+var goldenValue1 = 0.0
+var goldenValue2 = 0.0
+var goldenValue3 = 0.0
+var goldenValue4 = 0.0
+var goldenValue5 = 0.0
+var goldenValue6 = 0.0
+
+if not uptrend
+    _ret := (mid_point - min_val) / diff
+else
+    _ret := (mid_point - max_val) / (-1 * diff)
+
+Rounder(x) =>  na(x) ? na : round(x * 100, 2) / 100
+custom1 = Rounder(_ret)
+n = 1 - Rounder(_ret)
+custom2 = 1 - Rounder(1 + 1 / n)
+custom3 = 1 - Rounder(1 + 1 / (1 + 1 / n))
+custom4 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / n)))
+custom5 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / n))))
+custom6 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / n)))))
+custom7 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / ( 1 + 1 / (1 + 1/ n))))))
+custom8 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / ( 1 + 1 / (1 + 1/ (1 + 1/n)))))))
+custom9 = 1 - Rounder(1 + 1 / (1 + 1 / (1 + 1 / (1 + 1 / ( 1 + 1 / (1 + 1/ (1 + 1/(1 + 1 / n))))))))
+custom21 = custom2 -1
+custom31 = custom3 -1
+custom41 = custom4 - 1
+custom51 = custom5 - 1
+custom61 = custom6 - 1
+custom71 = custom7 - 1
+custom81 = custom8 - 1
+custom91 = custom9 - 1
+
+
+// var part1 = array.from(gValue, bValue, defValue, yValue, pValue, ppValue, pppValue)
+// var part2 = array.from(altValue1, altValue2, altValue3, altValue4, altValue5, altValue6, altValue7)
+// var goldenValues = array.new_float()
+
+// array.set(part1, 0, gValue)
+// array.set(part1, 1, bValue)
+// array.set(part1, 2, defValue)
+// array.set(part1, 3, yValue)
+// array.set(part1, 4, pValue)
+// array.set(part1, 5, ppValue)
+// array.set(part1, 6, pppValue)
+
+// array.set(part2, 0, altValue1)
+// array.set(part2, 1, altValue2)
+// array.set(part2, 2, altValue3)
+// array.set(part2, 3, altValue4)
+// array.set(part2, 4, altValue5)
+// array.set(part2, 5, altValue6)
+// array.set(part2, 6, altValue7)
+
+// for i = 0 to (array.size(part1) - 1)
+//     for j = 0 to (array.size(part2) - 1)
+//         value1 = array.get(part1, i)
+//         value2 = array.get(part2, j)
+//         // if math.abs(math.abs(value1) - math.abs(value2)) <= math.abs(value2) * 0.1
+//         array.push(goldenValues, value1)
+//         array.push(goldenValues, value2) 
+            
+
+// if array.size(goldenValues) != 0
+//     if array.size(goldenValues) <= 2
+//         goldenValue1 := array.get(goldenValues, 0)
+//         goldenValue2 := array.get(goldenValues, 1)
+//     else if array.size(goldenValues) <= 4
+//         goldenValue3 := array.get(goldenValues, 2)
+//         goldenValue4 := array.get(goldenValues, 3)
+//     else if array.size(goldenValues) <= 6
+//         goldenValue5 := array.get(goldenValues, 4)
+//         goldenValue6 := array.get(goldenValues, 5)
+
+
+// ratios
+
+enable_0 = input.bool(true, title="", group="RATIOS", inline="Level0")
+ratio_0 = input.float(0.0, title="", group="RATIOS", inline="Level0")
+color_0 = input.color(#949494, title="", group="RATIOS", inline="Level0")
+style_0 = input.string("Solid", title="", group="RATIOS", inline="Level0", options=["Solid", "Dotted", "Dashed"])
+text_0 = input.color(#949494, title="", group="RATIOS", inline="Level0")
+
+enable_00 = input.bool(true, title="", group="RATIOS", inline="Level00")
+ratio_00 = input.float(1.0, title="", group="RATIOS", inline="Level00")
+color_00 = input.color(#949494, title="", group="RATIOS", inline="Level00")
+style_00 = input.string("Solid", title="", group="RATIOS", inline="Level00", options=["Solid", "Dotted", "Dashed"])
+text_00 = input.color(#949494, title="", group="RATIOS", inline="Level00")
+
+enable_1 = input.bool(true, title="", group="RATIOS", inline="Level1")
+ratio_1 = custom1
+color_1 = input.color(#ff0000, title="", group="RATIOS", inline="Level1")
+style_1 = input.string("Solid", title="", group="RATIOS", inline="Level1", options=["Solid", "Dotted", "Dashed"])
+text_1 = input.color(#ff0000, title="", group="RATIOS", inline="Level1")
+
+enable_2 = input.bool(true, title="", group="RATIOS", inline="Level2")
+ratio_2 = custom2
+color_2 = input.color(#ff0000, title="", group="RATIOS", inline="Level2")
+style_2 = input.string("Solid", title="", group="RATIOS", inline="Level2", options=["Solid", "Dotted", "Dashed"])
+text_2 = input.color(#ff0000, title="", group="RATIOS", inline="Level2")
+
+enable_3 = input.bool(true, title="", group="RATIOS", inline="Level3")
+ratio_3 = custom3
+color_3 = input.color(#949494, title="", group="RATIOS", inline="Level3")
+style_3 = input.string("Solid", title="", group="RATIOS", inline="Level3", options=["Solid", "Dotted", "Dashed"])
+text_3 = input.color(#949494, title="", group="RATIOS", inline="Level3")
+
+enable_4 = input.bool(true, title="", group="RATIOS", inline="Level4")
+ratio_4 = custom4
+color_4 = input.color(#949494, title="", group="RATIOS", inline="Level4")
+style_4 = input.string("Solid", title="", group="RATIOS", inline="Level4", options=["Solid", "Dotted", "Dashed"])
+text_4 = input.color(#949494, title="", group="RATIOS", inline="Level4")
+
+enable_5 = input.bool(true, title="", group="RATIOS", inline="Level5")
+ratio_5 = custom5
+color_5 = input.color(#949494, title="", group="RATIOS", inline="Level5")
+style_5 = input.string("Solid", title="", group="RATIOS", inline="Level5", options=["Solid", "Dotted", "Dashed"])
+text_5 = input.color(#949494, title="", group="RATIOS", inline="Level5")
+
+enable_6 = input.bool(true, title="", group="RATIOS", inline="Level6")
+ratio_6 = custom6
+color_6 = input.color(#949494, title="", group="RATIOS", inline="Level6")
+style_6 = input.string("Solid", title="", group="RATIOS", inline="Level6", options=["Solid", "Dotted", "Dashed"])
+text_6 = input.color(#949494, title="", group="RATIOS", inline="Level6")
+
+enable_7 = input.bool(true, title="", group="RATIOS", inline="Level6")
+ratio_7 = custom7
+color_7 = input.color(#949494, title="", group="RATIOS", inline="Level7")
+style_7 = input.string("Solid", title="", group="RATIOS", inline="Level7", options=["Solid", "Dotted", "Dashed"])
+text_7 = input.color(#949494, title="", group="RATIOS", inline="Level7")
+
+enable_8 = input.bool(true, title="", group="RATIOS", inline="Level8")
+ratio_8 = custom8
+color_8 = input.color(#949494, title="", group="RATIOS", inline="Level8")
+style_8 = input.string("Solid", title="", group="RATIOS", inline="Level8", options=["Solid", "Dotted", "Dashed"])
+text_8 = input.color(#949494, title="", group="RATIOS", inline="Level8")
+
+enable_9 = input.bool(true, title="", group="RATIOS", inline="Level9")
+ratio_9 = custom9
+color_9 = input.color(#949494, title="", group="RATIOS", inline="Level9")
+style_9 = input.string("Solid", title="", group="RATIOS", inline="Level9", options=["Solid", "Dotted", "Dashed"])
+text_9 = input.color(#949494, title="", group="RATIOS", inline="Level9")
+
+enable_10 = input.bool(true, title="", group="RATIOS", inline="Level10")
+ratio_10 = custom21
+color_10 = input.color(#005eff, title="", group="RATIOS", inline="Level10")
+style_10 = input.string("Solid", title="", group="RATIOS", inline="Level10", options=["Solid", "Dotted", "Dashed"])
+text_10 = input.color(#005eff, title="", group="RATIOS", inline="Level10")
+
+enable_11 = input.bool(true, title="", group="RATIOS", inline="Level11")
+ratio_11 = custom31
+color_11 = input.color(#005eff, title="", group="RATIOS", inline="Level11")
+style_11 = input.string("Solid", title="", group="RATIOS", inline="Level11", options=["Solid", "Dotted", "Dashed"])
+text_11 = input.color(#005eff, title="", group="RATIOS", inline="Level11")
+
+enable_12 = input.bool(true, title="", group="RATIOS", inline="Level12")
+ratio_12 = custom41
+color_12 = input.color(#005eff, title="", group="RATIOS", inline="Level12")
+style_12 = input.string("Solid", title="", group="RATIOS", inline="Level12", options=["Solid", "Dotted", "Dashed"])
+text_12 = input.color(#005eff, title="", group="RATIOS", inline="Level12")
+
+enable_13 = input.bool(true, title="", group="RATIOS", inline="Level13")
+ratio_13 = custom51
+color_13 = input.color(#005eff, title="", group="RATIOS", inline="Level13")
+style_13 = input.string("Solid", title="", group="RATIOS", inline="Level13", options=["Solid", "Dotted", "Dashed"])
+text_13 = input.color(#005eff, title="", group="RATIOS", inline="Level13")
+
+if not uptrend
+    _r0 := min_val + diff * ratio_0
+    _r00 := min_val + diff * ratio_00
+    _r1 := min_val + diff * ratio_1
+    _r2 := min_val + diff * ratio_2
+    _r3 := min_val + diff * ratio_3
+    _r4 := min_val + diff * ratio_4
+    _r5 := min_val + diff * ratio_5
+    _r6 := min_val + diff * ratio_6
+    _r7 := min_val + diff * ratio_7
+    _r8 := min_val + diff * ratio_8
+    _r9 := min_val + diff * ratio_9
+    _r10 := min_val + diff * ratio_10
+    _r11 := min_val + diff * ratio_11
+    _r12 := min_val + diff * ratio_12
+    _r13 := min_val + diff * ratio_13
+    _ret := (mid_point - min_val) / diff
+else
+    _r0 := max_val - diff * ratio_0
+    _r00 := max_val - diff * ratio_00
+    _r1 := max_val - diff * ratio_1
+    _r2 := max_val - diff * ratio_2
+    _r3 := max_val - diff * ratio_3
+    _r4 := max_val - diff * ratio_4
+    _r5 := max_val - diff * ratio_5
+    _r6 := max_val - diff * ratio_6
+    _r7 := max_val - diff * ratio_7
+    _r8 := max_val - diff * ratio_8
+    _r9 := max_val - diff * ratio_9
+    _r10 := max_val - diff * ratio_10
+    _r11 := max_val - diff * ratio_11
+    _r12 := max_val - diff * ratio_12
+    _r13 := max_val - diff * ratio_13
+    _ret := (mid_point - max_val) / (-1 * diff)
+
+if barstate.islast
+    _l0 = str.tostring(ratio_0) + " (" + str.tostring(round(_r0)) + ")"
+    _l00 = str.tostring(ratio_00) + " (" + str.tostring(round(_r00)) + ")"
+    _l1 = str.tostring(ratio_1) + " (" + str.tostring(round(_r1)) + ")"
+    _l2 = str.tostring(ratio_2) + " (" + str.tostring(round(_r2)) + ")"
+    _l3 = str.tostring(ratio_3) + " (" + str.tostring(round(_r3)) + ")"
+    _l4 = str.tostring(ratio_4) + " (" + str.tostring(round(_r4)) + ")"
+    _l5 = str.tostring(ratio_5) + " (" + str.tostring(round(_r5)) + ")"
+    _l6 = str.tostring(ratio_6) + " (" + str.tostring(round(_r6)) + ")"
+    _l7 = str.tostring(ratio_7) + " (" + str.tostring(round(_r7)) + ")"
+    _l8 = str.tostring(ratio_8) + " (" + str.tostring(round(_r8)) + ")"
+    _l9 = str.tostring(ratio_9) + " (" + str.tostring(round(_r9)) + ")"
+    _l10 = str.tostring(ratio_10) + " (" + str.tostring(round(_r10)) + ")"
+    _l11 = str.tostring(ratio_11) + " (" + str.tostring(round(_r11)) + ")"
+    _l12 = str.tostring(ratio_12) + " (" + str.tostring(round(_r12)) + ")"
+    _l13 = str.tostring(ratio_13) + " (" + str.tostring(round(_r13)) + ")"
+
+
+
+
+    _lret = "Retraced " + str.tostring(round(_ret * 100, 2)) + "% (" + str.tostring(round(mid_point)) + ")"
+    label_style = label_pos == "Left"?label.style_label_right:label.style_label_left
+    label_align = label_pos == "Left"?text.align_left:text.align_right
+    label_index = label_pos == "Left"?start_index:end_index
+    
+    // PLOT ratios
+    if enable_0
+        array.push(lines, line.new(start_index, _r0, end_idx + (end_idx - start_idx), _r0, color=color_0, style=style_of(style_0), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r0, text=_l0, style=label_style, textalign=label_align, color=#00000000, textcolor=text_00))
+    if enable_00
+        array.push(lines, line.new(start_index, _r00, end_idx + (end_idx - start_idx), _r00, color=color_00, style=style_of(style_00), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r00, text=_l00, style=label_style, textalign=label_align, color=#00000000, textcolor=text_00))
+    if enable_1
+        array.push(lines, line.new(start_index, _r1, end_idx + (end_idx - start_idx), _r1, color=color_1, style=style_of(style_1), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r1, text=_l1, style=label_style, textalign=label_align, color=#00000000, textcolor=text_1))
+    if enable_2
+        array.push(lines, line.new(start_index, _r2, end_idx + (end_idx - start_idx), _r2, color=color_2, style=style_of(style_2), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r2, text=_l2, style=label_style, textalign=label_align, color=#00000000, textcolor=text_2))
+    if enable_3
+        array.push(lines, line.new(start_index, _r3, end_idx + (end_idx - start_idx), _r3, color=color_3, style=style_of(style_3), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r3, text=_l3, style=label_style, textalign=label_align, color=#00000000, textcolor=text_3))
+    if enable_4
+        array.push(lines, line.new(start_index, _r4, end_idx + (end_idx - start_idx), _r4, color=color_4, style=style_of(style_4), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r4, text=_l4, style=label_style, textalign=label_align, color=#00000000, textcolor=text_4))
+    if enable_5
+        array.push(lines, line.new(start_index, _r5, end_idx + (end_idx - start_idx), _r5, color=color_5, style=style_of(style_5), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r5, text=_l5, style=label_style, textalign=label_align, color=#00000000, textcolor=text_5))
+    if enable_6
+        array.push(lines, line.new(start_index, _r6, end_idx + (end_idx - start_idx), _r6, color=color_6, style=style_of(style_6), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r6, text=_l6, style=label_style, textalign=label_align, color=#00000000, textcolor=text_6))
+    if enable_7
+        array.push(lines, line.new(start_index, _r7, end_idx + (end_idx - start_idx), _r7, color=color_7, style=style_of(style_7), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r7, text=_l7, style=label_style, textalign=label_align, color=#00000000, textcolor=text_7))
+    if enable_8
+        array.push(lines, line.new(start_index, _r8, end_idx + (end_idx - start_idx), _r8, color=color_8, style=style_of(style_8), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r8, text=_l8, style=label_style, textalign=label_align, color=#00000000, textcolor=text_8))
+    if enable_9
+        array.push(lines, line.new(start_index, _r9, end_idx + (end_idx - start_idx), _r9, color=color_9, style=style_of(style_9), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r9, text=_l9, style=label_style, textalign=label_align, color=#00000000, textcolor=text_9))
+    if enable_10
+        array.push(lines, line.new(start_index, _r10, end_idx + (end_idx - start_idx), _r10, color=color_10, style=style_of(style_10), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r10, text=_l10, style=label_style, textalign=label_align, color=#00000000, textcolor=text_10))
+    if enable_11
+        array.push(lines, line.new(start_index, _r11, end_idx + (end_idx - start_idx), _r11, color=color_11, style=style_of(style_11), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r11, text=_l11, style=label_style, textalign=label_align, color=#00000000, textcolor=text_11))
+    if enable_12
+        array.push(lines, line.new(start_index, _r12, end_idx + (end_idx - start_idx), _r12, color=color_12, style=style_of(style_12), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r12, text=_l12, style=label_style, textalign=label_align, color=#00000000, textcolor=text_12))
+    if enable_13
+        array.push(lines, line.new(start_index, _r13, end_idx + (end_idx - start_idx), _r13, color=color_13, style=style_of(style_13), extend=_ext))
+        if label_enabled
+            array.push(labels, label.new(label_index, _r13, text=_l13, style=label_style, textalign=label_align, color=#00000000, textcolor=text_13))
+
+    // plot Trend
+    if draw_trend
+        array.push(lines, line.new(start_index, uptrend?min_val:max_val, end_index, uptrend?max_val:min_val, color=trend_color, style=style_of(trend_style)))
+
+    // plot Retracement
+    //if show_retracement
+        //array.push(lines, line.new(end_index, uptrend?max_val:min_val, mid_idx, mid_point, color=retracement_color, style=style_of(retracement_style), extend=_ext))
+        //if ret_label
+            //array.push(labels, label.new(mid_idx, mid_point, text=str.tostring(custom1), style=label.style_label_left, textalign=text.align_left, color=#00000000, textcolor=retracement_color))
+            //array.push(lines, line.new(start_index, _r6, end_index, _r6, color=color_6, style=style_of(style_6), extend=_ext))
+
+
+    
+    if show_date_range
+        array.push(lines, line.new(start_idx, close[bar_index - start_idx], start_idx, close[bar_index - start_idx] + syminfo.mintick, extend=extend.both, style=line.style_dashed, color=date_range_color))
+        array.push(lines, line.new(end_idx, close[bar_index - end_idx] - end_idx, end_idx, close[bar_index - end_idx] + syminfo.mintick, extend=extend.both, style=line.style_dashed, color=date_range_color))
+        
+
