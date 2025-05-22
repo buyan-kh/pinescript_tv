@@ -1,0 +1,388 @@
+//@version=4
+study("Higher High Lower Low Strategy", overlay =true)
+//Much of the script was inspired by LonesomeTheBlue [ https://www.tradingview.com/u/LonesomeTheBlue/ ]
+h4 = input("240", title = "Timeframe 4h", type = input.resolution)
+daily = input("D", title = "Timeframe daily", type = input.resolution)
+buy_limit = input(51, title = "RSI buy trigger", type = input.integer)
+sell_limit = input(49, title = "RSI sell trigger", type = input.integer)
+labelypoz = input(2500, title = "pozitia verticala a boxului de statistica", type = input.integer)
+lb = input(4, title="Left Bars", minval = 1)
+rb = input(4, title="Right Bars", minval = 1)
+LH_rsi = input(false, title="Sell= LH, <SMA50 || Buy= HL, >SMA50", type = input.bool)
+LH_HL_LH = input(false, title="SELL= LH, HL, LH || BUY= HL, LH, HL", type = input.bool)
+pinkShow = input(false, title="Show pink labels, i.e. stuff that appears only in real time, but is gone after a bit of consideration - after a few candles", type = input.bool)
+
+src4h = security(syminfo.tickerid, h4, close)
+srcD = security(syminfo.tickerid, daily, close)
+
+h4rsi = security(syminfo.tickerid, h4, rsi(src4h, 14))
+drsi = security(syminfo.tickerid, daily, rsi(srcD, 14))
+
+dsma = security(syminfo.tickerid, daily, sma(srcD, 50))
+plot(dsma, linewidth=2)
+
+// end rsi series
+
+round_it(v, d) => round(v * (pow(10, d))) / pow(10, d)
+
+compute_percentage_from_rsi(rsi) =>
+    float rez = 2
+    if rsi >= 51 and rsi <= 55
+        rez := 12.5*(rsi - 51) + 50
+    if rsi > 55 and rsi <= 60
+        rez := 10*(60 - rsi) + 50
+    if rsi >= 40 and rsi <= 45
+        rez := 10*(rsi - 40) + 50
+    if rsi > 45 and rsi <= 49
+        rez := 12.5*(49 - rsi) + 50
+    round_it(rez, 2)
+
+mb = lb + rb + 1
+
+ph = iff(not na(high[mb]), iff(highestbars(high, mb) == -lb, high[lb], na), na) // Pivot High
+pl = iff(not na(low[mb]), iff(lowestbars(low, mb) == -lb, low[lb], na), na) // Pivot Low
+
+int hl = na
+hl := iff(ph, 1, iff(pl, -1, na)) // Trend direction
+float zz = na
+zz := iff(ph, ph, iff(pl, pl, na)) // similar to zigzag but may have multiple highs/lows
+zz := iff(pl and hl == -1 and valuewhen(hl, hl, 1) == -1 and pl > valuewhen(zz, zz, 1), na, zz)
+zz := iff(ph and hl == 1  and valuewhen(hl, hl, 1) == 1  and ph < valuewhen(zz, zz, 1), na, zz)
+
+hl := iff(hl==-1 and valuewhen(hl, hl, 1)==1 and zz > valuewhen(zz, zz, 1), na, hl)
+hl := iff(hl==1 and valuewhen(hl, hl, 1)==-1 and zz < valuewhen(zz, zz, 1), na, hl)
+zz := iff(na(hl), na, zz)
+
+findprevious()=>  // finds previous three points (b, c, d, e)
+    ehl = iff(hl==1, -1, 1)
+    loc1 = 0.0, loc2 = 0.0, loc3 = 0.0, loc4 = 0.0
+    xx = 0
+    for x=1 to 1000
+        if hl[x]==ehl and not na(zz[x])
+            loc1 := zz[x]
+            xx := x + 1
+            break
+    ehl := hl
+    for x=xx to 1000
+        if hl[x]==ehl and not na(zz[x])
+            loc2 := zz[x]
+            xx := x + 1
+            break
+    ehl := iff(hl==1, -1, 1)
+    for x=xx to 1000
+        if hl[x]==ehl and not na(zz[x])
+            loc3 := zz[x]
+            xx := x + 1
+            break
+    ehl := hl
+    for x=xx to 1000
+        if hl[x]==ehl and not na(zz[x])
+            loc4 := zz[x]
+            break
+    [loc1, loc2, loc3, loc4]
+
+float a = na, float b = na, float c = na, float d = na, float e = na
+if not na(hl)
+    [loc1, loc2, loc3, loc4] = findprevious()
+    a := zz 
+    b := loc1
+    c := loc2
+    d := loc3
+    e := loc4
+
+//plot(zz, color=#00ff00, title="zz", style=plot.style_linebr, linewidth=7)
+//plot(ph, color=#ff0000, title="phph", style=plot.style_linebr, linewidth=3)
+//plot(pl, color=#000000, title="plpl", style=plot.style_linebr, linewidth=3)
+
+//plot(b, color=#000000, title="bb", style=plot.style_linebr)
+//plot(c, color=#ff0000, title="cc", style=plot.style_linebr)
+//plot(d, color=#ff00ff, title="dddd", style=plot.style_linebr, linewidth=3)
+//plot(zz, color=#000099, title="zzz", style=plot.style_linebr, linewidth=3)
+//plot(iff(hl==1, 9700, 10200), color=#000099, title="zzz", style=plot.style_linebr, linewidth=3)
+//plot(e, color=#aa4422, title="eeee", style=plot.style_linebr)
+
+_hh = zz and (a > b and a > c and c > b and c > d)
+_ll = zz and (a < b and a < c and c < b and c < d)
+_hl = zz and ((a >= c and (b > c and b > d and d > c and d > e)) or (a < b and a > c and b < d))
+_lh = zz and ((a <= c and (b < c and b < d and d < c and d < e)) or (a > b and a < c and b > d))
+
+var buy = 0
+var sell = 0
+var lastbuy = -2
+var lastsell = -2
+var float lastHLY1 = -1
+var int lastHLBarIndex1 = -1
+var float lastDRSIY1 = -1
+var float lastHLY2 = -1
+var int lastHLBarIndex2 = -1
+var float lastDRSIY2 = -1
+var bool sdivistrue = false
+//
+var float lastLHY1 = -1
+var int lastLHBarIndex1 = -1
+var float lastDRSILH1 = -1
+var float lastLHY2 = -1
+var int lastLHBarIndex2 = -1
+var float lastDRSILH2 = -1
+var bool bdivistrue = false
+bool showSellDiv = false
+bool buyShowDiv = false
+var int lastHH_Bar = -1
+var float lastHH_Price = -1
+var int lastLL_Bar = -1
+var float lastLL_Price = -1
+var float lastHHLLDRSI = -1
+var float lastLH_Price = -1
+var float lastHL_Price = -1
+var float lastLowPrice = -1
+var float lastHighPrice = -1
+bool fakeBuy = false
+bool fakeSell = false
+var int smallbuy1 = 0
+var int smallsell1 = 0
+var int lastsmallbuy1 = -2
+var int lastsmallsell1 = -2
+
+if _hh and lastbuy == 1
+    buy := 1
+
+if _lh and lastsmallbuy1 == 1
+    smallbuy1 := 1
+
+if _hh
+    // if bar_index > 2650
+    //     label.new(bar_index, close + 700, ' lastHLY1 = ' + tostring(lastHLY1) + ' lastHLBarIndex1 = ' + tostring(lastHLBarIndex1) + ' lastHLY2 = ' + tostring(lastHLY2) + ' lastHLBarIndex2 = ' + tostring(lastHLBarIndex2) + ' bar_index=' + tostring(bar_index), yloc = yloc.price)
+    if lastHLY1 == -1 and lastHLY2 == -1
+        lastHLY1 := zz[0]
+        lastHLBarIndex1 := bar_index - lb
+        lastDRSIY1 := drsi[lb]
+    else
+        if lastHLY2 != -1
+            lastHLY1 := lastHLY2
+            lastHLBarIndex1 := lastHLBarIndex2
+            lastDRSIY1 := lastDRSIY2
+        lastHLY2 := zz[0]
+        lastHLBarIndex2 := bar_index - lb
+        lastDRSIY2 := drsi[lb]
+    lastHH_Bar := bar_index - lb
+    lastHH_Price := zz[0]
+    lastLL_Bar := -1
+    lastLL_Price := -1
+    lastHHLLDRSI := drsi[lb]
+
+
+if _hh and buy == 2
+    buy := buy - 1
+
+if _hh and buy == 1
+    buy := buy + 1
+    
+if _lh and smallbuy1 == 1
+    smallbuy1 := smallbuy1 + 1
+    
+if _hl and (buy == 0 or buy == 2)
+    buy := buy + 1
+    smallbuy1 := smallbuy1 + 1
+    
+if _hl
+    lastHL_Price := zz[0]
+
+if _hh or _hl
+    lastsell := -2
+    sell := 0
+    
+if _hh
+    lastsmallsell1 := -2
+    smallsell1 := 0
+
+if _lh or _hh
+    lastHighPrice := zz[0]
+
+if _ll and lastsell == 1
+    sell := 1
+    
+if _hl and lastsmallsell1 == 1
+    smallsell1 := 1
+    
+if _ll
+    if lastLHY1 == -1 and lastLHY2 == -1
+        lastLHY1 := zz[0]
+        lastLHBarIndex1 := bar_index - lb
+        lastDRSILH1 := drsi[lb]
+    else
+        if lastLHY2 != -1
+            lastLHY1 := lastLHY2
+            lastLHBarIndex1 := lastLHBarIndex2
+            lastDRSILH1 := lastDRSILH2
+        lastLHY2 := zz[0]
+        lastLHBarIndex2 := bar_index - lb
+        lastDRSILH2 := drsi[lb]
+    lastHH_Bar := -1
+    lastHH_Price := -1
+    lastLL_Bar := bar_index - lb
+    lastLL_Price := zz[0]
+    lastHHLLDRSI := drsi[lb]
+
+if _ll and sell == 2
+    sell := sell - 1
+
+if _ll and sell == 1
+    sell := sell + 1
+    
+if _hl and smallsell1 == 1
+    smallsell1 := smallsell1 + 1
+
+if _lh and (sell == 0 or sell == 2)
+    sell := sell + 1
+    smallsell1 := smallsell1 + 1
+
+if _lh
+    lastLH_Price := zz[0]
+
+if _ll
+    lastHLY1 := -1
+    lastHLBarIndex1 := -1
+    lastDRSIY1 := -1
+    lastHLY2 := -1
+    lastHLBarIndex2 := -1
+    lastDRSIY2 := -1
+    sdivistrue:= false
+    showSellDiv:=false
+    
+if _hh
+    lastLHY1 := -1
+    lastLHBarIndex1 := -1
+    lastDRSILH1 := -1
+    lastLHY2 := -1
+    lastLHBarIndex2 := -1
+    lastDRSILH2 := -1
+    bdivistrue:= false
+    buyShowDiv:= false
+
+if _lh or _ll
+    lastbuy := -2
+    buy := 0
+    
+if _ll
+    lastsmallbuy1 := -2
+    smallbuy1 := 0
+    
+if _hl or _ll
+    lastLowPrice := zz[0]
+
+if lastHLY1 != -1 and lastHLY2 != -1 and lastHLY2 > lastHLY1 and lastDRSIY2 < lastDRSIY1
+    l = line.new(lastHLBarIndex1, lastHLY1, lastHLBarIndex2, lastHLY2, width = 4, color = color.red)
+    //label.new(lastHLBarIndex2, close + 700, ' lastHLBarIndex2 = ' + tostring(lastHLBarIndex2), yloc = yloc.price)
+    //label.new(lastHLBarIndex1, close + 700, ' lastHLBarIndex1 = ' + tostring(lastHLBarIndex1), yloc = yloc.price)
+    sdivistrue := true
+    showSellDiv := true
+
+if lastLHY1 != -1 and lastLHY2 != -1 and lastLHY2 < lastLHY1 and lastDRSILH2 > lastDRSILH1
+    l = line.new(lastLHBarIndex1, lastLHY1, lastLHBarIndex2, lastLHY2, width = 4, color = color.green)
+    bdivistrue := true
+    buyShowDiv:=true
+    
+label currentLabel = na
+label debugL = na
+string currentStatusText = na
+
+if close > lastLowPrice
+    currentStatusText := 'HL'
+    if high > lastHighPrice and high[0] > high[1] and high[0] > high[2] and high[0] > high[3] and high[0] > high[4]
+        currentStatusText := 'HH'
+    else
+        currentStatusText := 'LH'
+else
+    if low[0] < low[1] and low[0] < low[2] and low[0] < low[3] and low[0] < low[4]
+        currentStatusText := 'LL'
+    else
+        currentStatusText := 'HL'
+
+if currentStatusText == 'HL' or currentStatusText == 'LH'
+    if close[0] > high[1]
+        currentStatusText := 'LH'
+    if close[0] < low[1]
+        currentStatusText := 'HL'
+bool lowstyle = false
+lowstyle := currentStatusText == 'HL' or currentStatusText == 'LL'
+if sell == 2 and currentStatusText == 'LH' and close < dsma and drsi <= sell_limit
+    fakeSell := true
+    currentStatusText := currentStatusText + '\nSELL'
+if buy == 2 and currentStatusText == 'HL' and close > dsma and drsi >= buy_limit
+    fakeBuy := true
+    currentStatusText := currentStatusText + '\nBUY'
+
+if fakeBuy
+    currentStatusText := currentStatusText + '\n(' + tostring(compute_percentage_from_rsi(drsi[0])) + '%)'
+
+currentLabel := label.new(bar_index , lowstyle ? 0.975*low[0] : 1.025*high[0], currentStatusText, color = color.aqua, textcolor=color.black, style=(lowstyle ? label.style_labelup : label.style_labeldown), yloc=yloc.price)
+// + ' -- ' + tostring(close[0]) + ' ~~ ' + tostring(high[1]) + ' ~~ ' + tostring(low[1])
+//debugL := label.new(bar_index, 3300, 'bar_index='+tostring(bar_index)+' high[1]=' + tostring(high[1])+' lastHH_Price=' + tostring(lastHH_Price)+' >= ' + tostring((lastHH_Price - lastHL_Price)/4 + lastHL_Price), color = color.aqua, textcolor=color.black, style=label.style_labeldown, yloc=yloc.price)
+label.delete(currentLabel[6])
+//label.delete(debugL[1])
+alertcondition(fakeBuy or fakeSell, title='alert signal from TV', message='go and check btc/usd on TV and see if it is a buy or a sell')
+
+plotshape(pinkShow and fakeBuy, text="BUY", style=shape.labelup, color=#FF69B4, textcolor=color.white, location=location.bottom)
+plotshape(pinkShow and fakeSell, text="SELL", style=shape.labelup, color=#FF69B4, textcolor=color.white, location=location.bottom)
+
+plotshape(LH_rsi and currentStatusText == "LH" and close[0] < dsma[0], text="SELL", style=shape.labelup, color=#FF8C00, textcolor=color.red, location=location.top)
+plotshape(LH_rsi and currentStatusText == "HL" and close[0] > dsma[0], text="BUY", style=shape.labelup, color=#FF8C00, textcolor=color.white, location=location.top)
+
+plotshape(LH_HL_LH and smallbuy1 > 2, text="BUY", style=shape.labelup, color=#0000FF, textcolor=color.white, location=location.top, offset = -lb)
+plotshape(LH_HL_LH and smallsell1 > 2, text="SELL", style=shape.labelup, color=#0000FF, textcolor=color.red, location=location.top, offset = -lb)
+
+plotshape(close[lb] > dsma[lb] and buy > 2 and drsi[lb] >= buy_limit, text="BUY", title="BUY Signal", style=shape.labelup, color=color.lime, textcolor=color.black, location=location.bottom, offset = -lb)
+plotshape(close[lb] < dsma[lb] and sell > 2 and drsi[lb] <= sell_limit, text="SELL", title="SELL Signal", style=shape.labelup, color=color.red, textcolor=color.white, location=location.bottom, offset = -lb)
+
+if showSellDiv
+    showSellDiv := false
+    lastHLY1 := -1
+    lastHLBarIndex1 := -1
+    lastDRSIY1 := -1
+    sdivistrue:= false
+    
+if buyShowDiv
+    buyShowDiv:=false
+    lastLHY1 := -1
+    lastLHBarIndex1 := -1
+    lastDRSILH1 := -1
+    bdivistrue:= false
+
+if buy > 2
+    buy := 0
+    lastbuy := 1
+
+if sell > 2
+    sell := 0
+    lastsell := 1
+    
+if smallbuy1 > 2
+    smallbuy1 := 0
+    lastsmallbuy1 := 1
+
+if smallsell1 > 2
+    smallsell1 := 0
+    lastsmallsell1 := 1
+
+plotshape(_hl, text="HL", title="Higher Low", style=shape.labelup, color=color.lime, textcolor=color.black, location=location.belowbar, transp=0, offset = -lb)
+plotshape(_hh, text="HH", title="Higher High", style=shape.labeldown, color=color.lime, textcolor=color.black, location=location.abovebar, transp=0, offset = -lb)
+plotshape(_ll, text="LL", title="Lower Low", style=shape.labelup, color=color.red, textcolor=color.white, location=location.belowbar, transp=0, offset = -lb)
+plotshape(_lh, text="LH", title="Lower High", style=shape.labeldown, color=color.red, textcolor=color.white, location=location.abovebar, transp=0, offset = -lb)
+
+l = label.new(bar_index, labelypoz, 'RSI is '+tostring(drsi) + '\nPrice is ' + tostring(close) + ' sma50 = ' + tostring(dsma) + ' (' + tostring(round_it(close/dsma, 3)) + '%)' + '\nPRICE_DIV = ' + tostring(round_it((lastHH_Bar != -1 ? lastHH_Price : lastLL_Price)/close, 3)) + '%' + '\nRSI_DIV = ' + tostring(round_it(lastHHLLDRSI/drsi, 3)) + '%', 
+  color= drsi > buy_limit ? color.green : ( drsi < sell_limit ? color.red : color.silver), 
+  textcolor=color.white,
+  style=label.style_labeldown, yloc=yloc.price)
+
+label.delete(l[1])
+
+line highLine = na
+
+if lastHH_Bar != -1 and lastLL_Bar == -1
+    highLine := line.new(lastHH_Bar, lastHH_Price, bar_index, close, width = 2, color = color.blue)
+    line.delete(highLine[1])
+
+if lastHH_Bar == -1 and lastLL_Bar != -1
+    highLine := line.new(lastLL_Bar, lastLL_Price, bar_index, close, width = 2, color = color.blue)
+    line.delete(highLine[1])
+    
