@@ -1,0 +1,46 @@
+//@version=5
+indicator("Dynamic Horizontal Lines Calculator", overlay=true, max_lines_count=10)
+
+// Input section
+initial_price = input.float(2733, title="Initial Price", minval=0.01)
+
+// Calculate values similar to Python function
+b = initial_price / math.pow(10, str.length(str.tostring(int(initial_price))))
+n = int(initial_price)
+c = b
+
+// Arrays to store calculated values
+var line[] lines_array = array.new<line>()
+
+// Function to clear previous lines
+clear_lines() =>
+    if array.size(lines_array) > 0
+        for i = 0 to array.size(lines_array) - 1
+            line.delete(array.get(lines_array, i))
+        array.clear(lines_array)
+
+// Calculate and draw lines on the last bar
+if barstate.islast
+    clear_lines()
+    
+    // Reset variables for calculation
+    temp_c = b
+    
+    // Create 10 horizontal lines based on the calculation
+    for i = 0 to 9
+        calculated_value = math.pow(math.sqrt(n) - temp_c, 2)
+        
+        // Create horizontal line
+        new_line = line.new(x1=bar_index - 500, y1=calculated_value, x2=bar_index, y2=calculated_value, color=color.new(color.blue, 30), width=1, style=line.style_solid, extend=extend.right)
+        
+        // Add line to array
+        array.push(lines_array, new_line)
+        
+        // Add label to show the exact price
+        label.new(x=bar_index, y=calculated_value, text=str.tostring(calculated_value, "#.##"), color=color.blue, textcolor=color.white, size=size.small, style=label.style_label_left)
+        
+        // Update c for next iteration
+        temp_c := temp_c + b
+
+// Plot current price as reference
+plot(close, title="Current Price", color=color.red, linewidth=2)
