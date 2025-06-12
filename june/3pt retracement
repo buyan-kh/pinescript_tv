@@ -14,15 +14,18 @@ line_extend = input.string("Right", title="Extend Lines", options=["None", "Righ
 first_color = input.color(color.blue, title="First Point (0%)", group="COLORS")
 second_color = input.color(color.red, title="Second Point (100%)", group="COLORS") 
 mid_color = input.color(color.orange, title="Mid Point (50%)", group="COLORS")
+third_color = input.color(color.green, title="Third Point", group="COLORS")
 
-// Variables to store our three points
+// Variables to store our points
 var float first_price = na
 var float second_price = na
 var float mid_price = na
+var float third_price = na
 var int first_idx = na
 var int second_idx = na
 var int mid_idx = na
-var bool is_uptrend = false  // Changed from 'na' to 'false'
+var int third_idx = na
+var bool is_uptrend = false
 
 // Arrays to store lines and labels
 var line[] lines_array = array.new<line>()
@@ -59,27 +62,65 @@ var int highest_idx = na
 var int lowest_idx = na
 
 if time >= start_date and time <= end_date
+    // Track highest point
     if na(highest_price) or price_high > highest_price
         highest_price := price_high
         highest_idx := bar_index
+    
+    // Track lowest point
     if na(lowest_price) or price_low < lowest_price
         lowest_price := price_low
         lowest_idx := bar_index
 
 // Determine chronological order and set first/second points
 if not na(highest_idx) and not na(lowest_idx)
-    if highest_idx < lowest_idx  // Highest point comes first
+    if highest_idx < lowest_idx  // Highest point comes first (downtrend)
         first_price := highest_price
         first_idx := highest_idx
         second_price := lowest_price
         second_idx := lowest_idx
         is_uptrend := false  // Downtrend: high to low
-    else  // Lowest point comes first
+    else  // Lowest point comes first (uptrend)
         first_price := lowest_price
         first_idx := lowest_idx
         second_price := highest_price
         second_idx := highest_idx
         is_uptrend := true   // Uptrend: low to high
+
+// Find the third point AFTER the second point
+var float third_point_price = na
+var int third_point_idx = na
+
+log.info("first index is {0}", first_idx)
+log.info("second index is {0}", second_idx)
+log.info("third index is {0}", third_idx)
+log.info("bar index is {0}", bar_index)
+
+
+if not na(second_idx) and time >= start_date and time <= end_date and bar_index > second_idx
+    if is_uptrend
+        // For uptrend: find second lowest AFTER the highest point
+        if na(third_point_price) or price_low < third_point_price
+            third_point_price := price_low
+            third_point_idx := bar_index
+    else
+        // For downtrend: find second highest AFTER the lowest point  
+        if na(third_point_price) or price_high > third_point_price
+            third_point_price := price_high
+            third_point_idx := bar_index
+
+if not na(second_idx) and time >= start_date and time <= end_date and third_idx < second_idx
+    if is_uptrend
+        third_point_idx := bar_index
+        third_point_price := price_low
+    else
+        third_point_idx := bar_index
+        third_point_price := price_high
+    
+
+// Set the third price and index
+third_price := third_point_price
+third_idx := third_point_idx
 
 // Calculate the middle point (50% retracement level)
 if not na(first_price) and not na(second_price)
@@ -102,6 +143,9 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
     line_ext = line_extend == "Right" ? extend.right : 
                line_extend == "Left" ? extend.left : 
                line_extend == "Both" ? extend.both : extend.none
+    
+    // Calculate third line start position (after second point chronologically)
+    third_line_start = not na(second_idx) and not na(third_idx) ? math.max(second_idx, start_idx) : start_idx
     
     // Draw horizontal lines for each point
     if not na(first_price)
@@ -130,13 +174,23 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
             mid_label = label.new(x=mid_idx, y=mid_price, text="Mid (50%)\n" + str.tostring(mid_price, "#.####"), color=mid_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
             array.push(labels_array, mid_label)
     
+    // Draw third point line starting after second point
+    if not na(third_price)
+        third_line = line.new(x1=third_line_start, y1=third_price, x2=end_idx, y2=third_price, color=third_color, width=2, style=line.style_solid, extend=line_ext)
+        array.push(lines_array, third_line)
+        
+        if show_labels
+            third_label_text = is_uptrend ? "2nd Low After High\n" + str.tostring(third_price, "#.####") : "2nd High After Low\n" + str.tostring(third_price, "#.####")
+            third_label = label.new(x=third_idx, y=third_price, text=third_label_text, color=third_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
+            array.push(labels_array, third_label)
+    
     // Draw trend line connecting first and second points
     if not na(first_idx) and not na(second_idx)
         trend_line = line.new(x1=first_idx, y1=first_price, x2=second_idx, y2=second_price, color=color.gray, width=1, style=line.style_dotted, extend=extend.none)
         array.push(lines_array, trend_line)
 
 // Create information table
-var table info_table = table.new(position.top_right, 2, 4, bgcolor=color.new(color.white, 80), border_width=1)
+var table info_table = table.new(position.top_right, 2, 5, bgcolor=color.new(color.white, 80), border_width=1)
 
 if barstate.islast
     table.cell(info_table, 0, 0, "Level", text_color=color.black, bgcolor=color.new(color.gray, 70), text_size=size.small)
@@ -144,6 +198,7 @@ if barstate.islast
     
     first_label_text = is_uptrend ? "Low First (0%)" : "High First (0%)"
     second_label_text = is_uptrend ? "High Second (100%)" : "Low Second (100%)"
+    third_label_text = is_uptrend ? "2nd Low After High" : "2nd High After Low"
     
     table.cell(info_table, 0, 1, first_label_text, text_color=first_color, text_size=size.small)
     table.cell(info_table, 1, 1, str.tostring(first_price, "#.####"), text_color=color.black, text_size=size.small)
@@ -153,3 +208,6 @@ if barstate.islast
     
     table.cell(info_table, 0, 3, second_label_text, text_color=second_color, text_size=size.small)
     table.cell(info_table, 1, 3, str.tostring(second_price, "#.####"), text_color=color.black, text_size=size.small)
+    
+    table.cell(info_table, 0, 4, third_label_text, text_color=third_color, text_size=size.small)
+    table.cell(info_table, 1, 4, str.tostring(third_price, "#.####"), text_color=color.black, text_size=size.small)
