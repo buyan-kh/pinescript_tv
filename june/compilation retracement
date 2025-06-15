@@ -14,7 +14,7 @@ line_extend = input.string("Right", title="Extend Lines", options=["None", "Righ
 // Colors
 first_color = input.color(#000000, title="Ehlel tseg 0", group="COLORS")
 second_color = input.color(#000000, title="Oroi tseg 1", group="COLORS") 
-my_color = input.color(color.orange, title="my", group="COLORS")
+aba_color = input.color(color.orange, title="my", group="COLORS")
 third_color = input.color(#000000, title="Correction tseg", group="COLORS")
 array_color = input.color(color.purple, title="Array Lines Color", group="COLORS")
 array_y_color = input.color(#ff0000, title="Array Y Lines Color", group="COLORS")
@@ -29,6 +29,7 @@ var float correction_ratio = na
 
 var float[] abc_array = array.new<float>(0)
 var float[] abc_y_array = array.new<float>(0)
+var float[] aba_array = array.new<float>(0)
 
 var int first_idx = na
 var int second_idx = na
@@ -122,8 +123,11 @@ if not na(first_price) and not na(second_price) and not na(third_price)
     initial_range := math.abs(second_price - first_price)
     correction_ratio := math.abs(first_price - third_price) / initial_range
     tmp = 1 / correction_ratio
+    diff = math.abs(first_price - third_price)
+
     array.clear(abc_array)
     array.clear(abc_y_array)
+    array.clear(aba_array)
 
     tmp_abc = tmp
     tmp_abc_1 = tmp
@@ -131,13 +135,22 @@ if not na(first_price) and not na(second_price) and not na(third_price)
     tmp_abc_y_1 = tmp
 
     if (is_uptrend)
-        abc_buhel_price := third_price + initial_range
+        // abc_buhel_price := third_price + initial_range
         array.push(abc_array, third_price + math.abs(first_price - third_price))
         if math.abs(first_price - third_price) * 2 <= second_price
             array.push(abc_array, third_price + math.abs(first_price - third_price) * 2)
 
         array.push(abc_array, third_price + math.abs(first_price - third_price) / 2)
         array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
+        
+        b = 2
+        while b < 9
+            array.push(aba_array, second_price + diff / b)
+            b := b * 2
+        a = 1
+        while a < 32
+            array.push(aba_array, second_price + diff * a)
+            a := a * 2
 
 
         while tmp_abc > 2.1
@@ -163,7 +176,18 @@ if not na(first_price) and not na(second_price) and not na(third_price)
         array.push(abc_array, third_price - (first_price - third_price) / 2)
         array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
 
-        abc_buhel_price := third_price - initial_range
+
+        // abc_buhel_price := third_price - initial_range
+        
+        b = 2
+        while b < 9
+            array.push(aba_array, second_price - diff / b)
+            b := b * 2
+        a = 1
+        while a < 32
+            array.push(aba_array, second_price - diff * a)
+            a := a * 2
+
         while tmp_abc > 2.1
             tmp_abc := tmp_abc / 2
             array.push(abc_array, third_price - (tmp_abc) * initial_range)
@@ -211,10 +235,10 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
             second_label = label.new(x=second_idx, y=second_price, text=second_label_text, color=second_color, textcolor=color.white, size=size.normal, style=label.style_label_up)
             array.push(labels_array, second_label)
     if not na(abc_buhel_price)
-        my_line = line.new(x1=start_idx, y1=abc_buhel_price, x2=end_idx, y2=abc_buhel_price, color=my_color, width=2, style=line.style_solid, extend=line_ext)
+        my_line = line.new(x1=start_idx, y1=abc_buhel_price, x2=end_idx, y2=abc_buhel_price, color=aba_color, width=2, style=line.style_solid, extend=line_ext)
         array.push(lines_array, my_line)
         if show_labels
-            my_label = label.new(x=my_idx, y=abc_buhel_price, text="ABA", color=my_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
+            my_label = label.new(x=my_idx, y=abc_buhel_price, text="ABA", color=aba_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
             array.push(labels_array, my_label)
     if not na(third_price)
         third_line = line.new(x1=third_line_start, y1=third_price, x2=end_idx, y2=third_price, color=third_color, width=2, style=line.style_solid, extend=line_ext)
@@ -254,6 +278,20 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
                 label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * j)
                 array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
                 array.push(labels_array, array_label)
+    
+    if show_array_lines and array.size(aba_array) > 0
+        for k = 0 to array.size(aba_array) - 1
+            array_value = array.get(aba_array, k)
+            current_array_color = color.new(aba_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and k < 6
+                label_text = "Lvl" + str.tostring(k) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * k)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
 
 // Create information table with expanded size for array info
 var table info_table = table.new(position.top_right, 2, 15, bgcolor=color.new(color.white, 80), border_width=1)
@@ -266,7 +304,7 @@ if barstate.islast
     third_label_text = is_uptrend ? "2nd Low After High" : "2nd High After Low"
     table.cell(info_table, 0, 1, first_label_text, text_color=first_color, text_size=size.small)
     table.cell(info_table, 1, 1, str.tostring(first_price, "#.####"), text_color=color.black, text_size=size.small)
-    table.cell(info_table, 0, 2, "ABA", text_color=my_color, text_size=size.small) 
+    table.cell(info_table, 0, 2, "ABA", text_color=aba_color, text_size=size.small) 
     table.cell(info_table, 1, 2, str.tostring(abc_buhel_price, "#.####"), text_color=color.black, text_size=size.small)
     table.cell(info_table, 0, 3, second_label_text, text_color=second_color, text_size=size.small)
     table.cell(info_table, 1, 3, str.tostring(second_price, "#.####"), text_color=color.black, text_size=size.small)
