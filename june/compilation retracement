@@ -1,5 +1,5 @@
 //@version=6
-indicator("Three Point Retracement", shorttitle="3PT Retrace", overlay=true, max_bars_back=5000)
+indicator("Auto oilt", shorttitle="Auto oilt", overlay=true, max_bars_back=5000)
 
 // Input section for date range
 start_date = input.time(timestamp("01 Nov 2023"), "Start Date", confirm=true, group="DATE RANGE")
@@ -18,6 +18,8 @@ aba_color = input.color(color.orange, title="my", group="COLORS")
 third_color = input.color(#000000, title="Correction tseg", group="COLORS")
 array_color = input.color(color.purple, title="Array Lines Color", group="COLORS")
 array_y_color = input.color(#ff0000, title="Array Y Lines Color", group="COLORS")
+fibo_def_color = input.color(#009511, title="Fibo Def Lines Color", group="COLORS")
+fibo_doub_color = input.color(#2200ff, title="Fibo Doub Lines Color", group="COLORS")
 
 // Variables to store our points
 var float first_price = na
@@ -30,6 +32,8 @@ var float correction_ratio = na
 var float[] abc_array = array.new<float>(0)
 var float[] abc_y_array = array.new<float>(0)
 var float[] aba_array = array.new<float>(0)
+var float[] fibo_doub_array = array.new<float>(0)
+var float[] fibo_def_array = array.new<float>(0)
 
 var int first_idx = na
 var int second_idx = na
@@ -128,6 +132,8 @@ if not na(first_price) and not na(second_price) and not na(third_price)
     array.clear(abc_array)
     array.clear(abc_y_array)
     array.clear(aba_array)
+    array.clear(fibo_doub_array)
+    array.clear(fibo_def_array)
 
     tmp_abc = tmp
     tmp_abc_1 = tmp
@@ -151,6 +157,18 @@ if not na(first_price) and not na(second_price) and not na(third_price)
         while a < 32
             array.push(aba_array, second_price + diff * a)
             a := a * 2
+
+        f = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_doub_array, third_price + initial_range * f)
+            f := f * 2
+        
+        array.push(fibo_def_array, first_price + initial_range * 1.272)
+        array.push(fibo_def_array, first_price + initial_range * 1.1278)
+        f_1 = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_def_array, first_price + initial_range * f_1)
+            f_1 := f_1 * 1.618
 
 
         while tmp_abc > 2.1
@@ -187,6 +205,18 @@ if not na(first_price) and not na(second_price) and not na(third_price)
         while a < 32
             array.push(aba_array, second_price - diff * a)
             a := a * 2
+        
+        f = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_doub_array, third_price - initial_range * f)
+            f := f * 2
+        
+        array.push(fibo_def_array, first_price - initial_range * 1.272)
+        array.push(fibo_def_array, first_price - initial_range * 1.12783)
+        f_1 = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_def_array, first_price - initial_range * f_1)  // FIXED: using f_1 instead of f
+            f_1 := f_1 * 1.618
 
         while tmp_abc > 2.1
             tmp_abc := tmp_abc / 2
@@ -290,6 +320,34 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
             if show_labels and k < 6
                 label_text = "Lvl" + str.tostring(k) + "\n" + str.tostring(array_value, "#.####")
                 label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * k)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+
+    if show_array_lines and array.size(fibo_def_array) > 0
+        for l = 0 to array.size(fibo_def_array) - 1
+            array_value = array.get(fibo_def_array, l)
+            current_array_color = color.new(fibo_def_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and l < 6
+                label_text = "Lvl" + str.tostring(l) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * l)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+
+    if show_array_lines and array.size(fibo_doub_array) > 0
+        for m = 0 to array.size(fibo_doub_array) - 1
+            array_value = array.get(fibo_doub_array, m)
+            current_array_color = color.new(fibo_doub_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and m < 6
+                label_text = "Lvl" + str.tostring(m) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * m)
                 array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
                 array.push(labels_array, array_label)
 
