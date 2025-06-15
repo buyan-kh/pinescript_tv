@@ -1,5 +1,5 @@
 //@version=6
-indicator("Auto oilt", shorttitle="Auto oilt", overlay=true, max_bars_back=5000)
+indicator("Auto oilt", shorttitle="Auto oilt", overlay=true, max_bars_back=5000, max_lines_count = 200)
 
 // Input section for date range
 start_date = input.time(timestamp("01 Nov 2023"), "Start Date", confirm=true, group="DATE RANGE")
@@ -91,7 +91,7 @@ createSpecialArray() =>
     if array.size(fibo_def_array) > 0
         for i = 0 to array.size(fibo_def_array) - 1
             array.push(all_prices, array.get(fibo_def_array, i))
-    
+
     // Group prices within 0.09% range
     total_prices = array.size(all_prices)
     if total_prices > 0
@@ -120,7 +120,7 @@ createSpecialArray() =>
                                 if math.abs(base_price) > 0
                                     percentage_diff = math.abs(base_price - compare_price) / math.abs(base_price) * 100
                                     
-                                    if percentage_diff <= 0.09
+                                    if percentage_diff <= 0.08
                                         array.push(group_prices, compare_price)
                                         array.set(used_prices, j, true)
                     
@@ -215,78 +215,96 @@ if not na(first_price) and not na(second_price) and not na(third_price)
     tmp_abc_y_1 = tmp
 
     if (is_uptrend)
-        // abc_buhel_price := third_price + initial_range
-        array.push(abc_array, third_price + math.abs(first_price - third_price))
-        if math.abs(first_price - third_price) * 2 <= second_price
-            array.push(abc_array, third_price + math.abs(first_price - third_price) * 2)
 
-        array.push(abc_array, third_price + math.abs(first_price - third_price) / 2)
         array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
         
-        b = 2
-        while b < 9
-            array.push(aba_array, second_price + diff / b)
-            b := b * 2
+        // b = 2
+        // while b < 9
+        //     array.push(aba_array, second_price + diff / b)
+        //     b := b * 2
         a = 1
-        while a < 32
+        while a < 17
             array.push(aba_array, second_price + diff * a)
+            array.push(aba_array, third_price + initial_range * a)
+            if (third_price + diff * a) > second_price
+                array.push(aba_array, third_price + diff * a)
+            array.push(aba_array, third_price + (second_price - third_price) * a) // AB x2
+            array.push(aba_array, first_price + initial_range * a) // AA x2
+            array.push(aba_array, second_price + initial_range * a)
             a := a * 2
+        // array.push(abc_array, third_price + (second_price - third_price) * 2)
+        array.push(aba_array, third_price + (second_price - third_price) * 1.5) // 1.5
 
         f = 1.618
-        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+        for i = 0 to 6  
             array.push(fibo_doub_array, third_price + initial_range * f)
             f := f * 2
         
         array.push(fibo_def_array, first_price + initial_range * 1.272)
         array.push(fibo_def_array, first_price + initial_range * 1.1278)
+        array.push(fibo_def_array, third_price + (initial_range - diff) * 1.272)
         f_1 = 1.618
-        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+        for i = 0 to 6 
             array.push(fibo_def_array, first_price + initial_range * f_1)
+            array.push(fibo_def_array, third_price + (initial_range - diff) * f_1)
             f_1 := f_1 * 1.618
 
-        while tmp_abc > 2.1
+        counter = 0
+        while tmp_abc > 2 and counter < 5
             tmp_abc := tmp_abc / 2
             array.push(abc_array, third_price + (tmp_abc) * initial_range)
+            counter := counter + 1  
             
         while tmp_abc_1 < 15
             array.push(abc_array, third_price + (tmp_abc_1) * initial_range)
             tmp_abc_1 := tmp_abc_1 * 2
         
-        while tmp_abc_y > 1.16
+        counter1 = 0
+        while tmp_abc_y > 1.16 and counter1 < 5
             tmp_abc_y := math.sqrt(tmp_abc_y)
             array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
+            counter1 := counter1 + 1
         
         while tmp_abc_y_1 < 15
             tmp_abc_y_1 := tmp_abc_y_1 * tmp_abc_y_1
             array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y_1)))
 
     else
-        array.push(abc_array, third_price - (first_price - third_price))
-        array.push(abc_array, third_price - (first_price - third_price) / 2)
         array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
 
         // abc_buhel_price := third_price - initial_range
         
-        b = 2
-        while b < 9
-            array.push(aba_array, second_price - diff / b)
-            b := b * 2
+        // b = 2
+        // while b < 9
+        //     array.push(aba_array, second_price - diff / b)
+        //     b := b * 2
         a = 1
         while a < 32
             array.push(aba_array, second_price - diff * a)
+            array.push(aba_array, third_price - initial_range * a)
+            if (third_price - diff * a) < second_price
+                array.push(aba_array, third_price - diff * a)
+            array.push(aba_array, third_price - math.abs(second_price - third_price) * a) // AB x2
+            array.push(aba_array, first_price - initial_range * a) // AA x2
+            array.push(aba_array, second_price - initial_range * a)
             a := a * 2
+        array.push(abc_array, third_price - math.abs(second_price - third_price) * 1.5) // 1.5 ratio
+
         
         f = 1.618
-        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+        for i = 0 to 6 
             array.push(fibo_doub_array, third_price - initial_range * f)
             f := f * 2
         
         array.push(fibo_def_array, first_price - initial_range * 1.272)
         array.push(fibo_def_array, first_price - initial_range * 1.12783)
-        f_1 = 1.618
-        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
-            array.push(fibo_def_array, first_price - initial_range * f_1)  // FIXED: using f_1 instead of f
-            f_1 := f_1 * 1.618
+        array.push(fibo_def_array, third_price - (initial_range - diff) * 1.272)
+        f_1 = 1.272
+        for i = 0 to 6  
+            array.push(fibo_def_array, first_price - initial_range * f_1)
+            array.push(fibo_def_array, third_price - (initial_range - diff) * f_1)
+
+            f_1 := f_1 * 1.272
 
         while tmp_abc > 2.1
             tmp_abc := tmp_abc / 2
@@ -439,29 +457,77 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
                 array.push(labels_array, array_label)
 
 // Create information table with expanded size for array info
-var table info_table = table.new(position.top_right, 2, 15, bgcolor=color.new(color.white, 80), border_width=1)
+var table info_table = na
 
-if barstate.islast
-    table.cell(info_table, 0, 0, "Level", text_color=color.black, bgcolor=color.new(color.gray, 70), text_size=size.small)
+if barstate.islast and array.size(special_arr) > 0
+    // Calculate table rows needed (header + special array items)
+    table_rows = math.min(array.size(special_arr) + 1, 21) // Max 20 levels + header
+    info_table := table.new(position.top_right, 2, table_rows, bgcolor=color.new(color.white, 80), border_width=1)
+    
+    // Header
+    table.cell(info_table, 0, 0, "Special Level", text_color=color.black, bgcolor=color.new(color.gray, 70), text_size=size.small)
     table.cell(info_table, 1, 0, "Price", text_color=color.black, bgcolor=color.new(color.gray, 70), text_size=size.small)
-    first_label_text = is_uptrend ? "Low First (0%)" : "High First (0%)"
-    second_label_text = is_uptrend ? "High Second (100%)" : "Low Second (100%)"
-    third_label_text = is_uptrend ? "2nd Low After High" : "2nd High After Low"
-    table.cell(info_table, 0, 1, first_label_text, text_color=first_color, text_size=size.small)
-    table.cell(info_table, 1, 1, str.tostring(first_price, "#.####"), text_color=color.black, text_size=size.small)
-    table.cell(info_table, 0, 2, "ABA", text_color=aba_color, text_size=size.small) 
-    table.cell(info_table, 1, 2, str.tostring(abc_buhel_price, "#.####"), text_color=color.black, text_size=size.small)
-    table.cell(info_table, 0, 3, second_label_text, text_color=second_color, text_size=size.small)
-    table.cell(info_table, 1, 3, str.tostring(second_price, "#.####"), text_color=color.black, text_size=size.small)
-    table.cell(info_table, 0, 4, third_label_text, text_color=third_color, text_size=size.small)
-    table.cell(info_table, 1, 4, str.tostring(third_price, "#.####"), text_color=color.black, text_size=size.small)
-    if array.size(abc_array) > 0
-        table.cell(info_table, 0, 5, "─────────────", text_color=color.gray, text_size=size.small)
-        table.cell(info_table, 1, 5, "─────────────", text_color=color.gray, text_size=size.small)
-        table.cell(info_table, 0, 6, "Array Size", text_color=color.black, bgcolor=color.new(color.gray, 70), text_size=size.small)
-        table.cell(info_table, 1, 6, str.tostring(array.size(abc_array)), text_color=color.black, text_size=size.small)
-        max_display = math.min(array.size(abc_array), 8)
-        for i = 0 to max_display - 1
-            level_name = i == 0 ? "Base Level" : "Level " + str.tostring(i)
-            table.cell(info_table, 0, 7 + i, level_name, text_color=array_color, text_size=size.small)
-            table.cell(info_table, 1, 7 + i, str.tostring(array.get(abc_array, i), "#.####"), text_color=color.black, text_size=size.small)
+    
+    // Special Array levels
+    max_display = math.min(array.size(special_arr), 20) // Show max 20 levels
+    for i = 0 to max_display - 1
+        level_name = "Special " + str.tostring(i + 1)
+        table.cell(info_table, 0, i + 1, level_name, text_color=special_arr_color, text_size=size.small)
+        table.cell(info_table, 1, i + 1, str.tostring(array.get(special_arr, i), "#.####"), text_color=color.black, text_size=size.small)
+
+
+
+logArrayContents() =>
+    if barstate.islast and not na(first_price) and not na(second_price) and not na(third_price)
+        
+        log.info("=== ARRAY CONTENTS DEBUG ===")
+        log.info("Trend Direction: " + (is_uptrend ? "UPTREND" : "DOWNTREND"))
+        log.info("Initial Range: " + str.tostring(initial_range, "#.####"))
+        log.info("Correction Ratio: " + str.tostring(correction_ratio, "#.####"))
+        
+        // ABC Array
+        abc_size = array.size(abc_array)
+        log.info("ABC ARRAY (Size: " + str.tostring(abc_size) + "):")
+        if abc_size > 0
+            for i = 0 to math.min(abc_size - 1, 9) // Limit to first 10 elements
+                value = array.get(abc_array, i)
+                log.info("  [" + str.tostring(i) + "] = " + str.tostring(value, "#.####"))
+        
+        // ABC Y Array
+        abc_y_size = array.size(abc_y_array)
+        log.info("ABC Y ARRAY (Size: " + str.tostring(abc_y_size) + "):")
+        if abc_y_size > 0
+            for i = 0 to math.min(abc_y_size - 1, 9)
+                value = array.get(abc_y_array, i)
+                log.info("  [" + str.tostring(i) + "] = " + str.tostring(value, "#.####"))
+        
+        // ABA Array
+        aba_size = array.size(aba_array)
+        log.info("ABA ARRAY (Size: " + str.tostring(aba_size) + "):")
+        if aba_size > 0
+            for i = 0 to math.min(aba_size - 1, 9)
+                value = array.get(aba_array, i)
+                log.info("  [" + str.tostring(i) + "] = " + str.tostring(value, "#.####"))
+        
+        // Fibo Def Array
+        fibo_def_size = array.size(fibo_def_array)
+        log.info("FIBO DEF ARRAY (Size: " + str.tostring(fibo_def_size) + "):")
+        if fibo_def_size > 0
+            for i = 0 to math.min(fibo_def_size - 1, 9)
+                value = array.get(fibo_def_array, i)
+                log.info("  [" + str.tostring(i) + "] = " + str.tostring(value, "#.####"))
+        
+        // Fibo Doub Array
+        fibo_doub_size = array.size(fibo_doub_array)
+        log.info("FIBO DOUB ARRAY (Size: " + str.tostring(fibo_doub_size) + "):")
+        if fibo_doub_size > 0
+            for i = 0 to math.min(fibo_doub_size - 1, 9)
+                value = array.get(fibo_doub_array, i)
+                log.info("  [" + str.tostring(i) + "] = " + str.tostring(value, "#.####"))
+
+        special_arr_size = array.size(special_arr)
+        log.info("SPECIAL ARRAY (Size: " + str.tostring(special_arr_size) + "):")
+
+logArrayContents()
+
+
