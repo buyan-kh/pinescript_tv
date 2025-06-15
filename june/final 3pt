@@ -1,5 +1,5 @@
 //@version=6
-indicator("Three Point Retracement", shorttitle="3PT Retrace", overlay=true, max_bars_back=5000)
+indicator("Auto oilt", shorttitle="Auto oilt", overlay=true, max_bars_back=5000)
 
 // Input section for date range
 start_date = input.time(timestamp("01 Nov 2023"), "Start Date", confirm=true, group="DATE RANGE")
@@ -12,11 +12,15 @@ show_array_lines = input.bool(true, title="Show Array Lines", group="OPTIONS")
 line_extend = input.string("Right", title="Extend Lines", options=["None", "Right", "Left", "Both"], group="OPTIONS")
 
 // Colors
-first_color = input.color(color.blue, title="Ehlel tseg 0", group="COLORS")
-second_color = input.color(color.red, title="Oroi tseg 1", group="COLORS") 
-my_color = input.color(color.orange, title="my", group="COLORS")
-third_color = input.color(color.green, title="Correction tseg", group="COLORS")
+first_color = input.color(#000000, title="Ehlel tseg 0", group="COLORS")
+second_color = input.color(#000000, title="Oroi tseg 1", group="COLORS") 
+aba_color = input.color(color.orange, title="my", group="COLORS")
+third_color = input.color(#000000, title="Correction tseg", group="COLORS")
 array_color = input.color(color.purple, title="Array Lines Color", group="COLORS")
+array_y_color = input.color(#ff0000, title="Array Y Lines Color", group="COLORS")
+fibo_def_color = input.color(#009511, title="Fibo Def Lines Color", group="COLORS")
+fibo_doub_color = input.color(#2200ff, title="Fibo Doub Lines Color", group="COLORS")
+special_arr_color = input.color(#000000, title="Special Arr Color", group="COLORS")
 
 // Variables to store our points
 var float first_price = na
@@ -27,6 +31,11 @@ var float initial_range = na
 var float correction_ratio = na
 
 var float[] abc_array = array.new<float>(0)
+var float[] abc_y_array = array.new<float>(0)
+var float[] aba_array = array.new<float>(0)
+var float[] fibo_doub_array = array.new<float>(0)
+var float[] fibo_def_array = array.new<float>(0)
+var float[] special_arr = array.new<float>(0)
 
 var int first_idx = na
 var int second_idx = na
@@ -51,6 +60,78 @@ clearDrawings() =>
         line.delete(array.pop(lines_array))
     while array.size(labels_array) > 0
         label.delete(array.pop(labels_array))
+
+// Function to create special array with grouped prices
+// Function to create special array with grouped prices
+// Function to create special array with grouped prices
+// Function to create special array with grouped prices
+createSpecialArray() =>
+    array.clear(special_arr)
+    
+    // Collect all prices from all arrays into one combined array
+    all_prices = array.new<float>(0)
+    
+    // Add all prices from different arrays
+    if array.size(abc_array) > 0
+        for i = 0 to array.size(abc_array) - 1
+            array.push(all_prices, array.get(abc_array, i))
+    
+    if array.size(abc_y_array) > 0
+        for i = 0 to array.size(abc_y_array) - 1
+            array.push(all_prices, array.get(abc_y_array, i))
+    
+    if array.size(aba_array) > 0
+        for i = 0 to array.size(aba_array) - 1
+            array.push(all_prices, array.get(aba_array, i))
+    
+    if array.size(fibo_doub_array) > 0
+        for i = 0 to array.size(fibo_doub_array) - 1
+            array.push(all_prices, array.get(fibo_doub_array, i))
+    
+    if array.size(fibo_def_array) > 0
+        for i = 0 to array.size(fibo_def_array) - 1
+            array.push(all_prices, array.get(fibo_def_array, i))
+    
+    // Group prices within 0.09% range
+    total_prices = array.size(all_prices)
+    if total_prices > 0
+        used_prices = array.new<bool>(0)
+        
+        // Initialize used_prices array with false values
+        for i = 0 to total_prices - 1
+            array.push(used_prices, false)
+        
+        for i = 0 to total_prices - 1
+            // Check bounds before accessing
+            if i < array.size(used_prices) and i < array.size(all_prices)
+                if not array.get(used_prices, i) // If this price hasn't been used yet
+                    base_price = array.get(all_prices, i)
+                    group_prices = array.new<float>(0)
+                    array.push(group_prices, base_price)
+                    array.set(used_prices, i, true)
+                    
+                    // Find all prices within 0.09% range of base_price
+                    for j = i + 1 to total_prices - 1
+                        // Check bounds before accessing
+                        if j < array.size(used_prices) and j < array.size(all_prices)
+                            if not array.get(used_prices, j) // If this price hasn't been used yet
+                                compare_price = array.get(all_prices, j)
+                                // Avoid division by zero
+                                if math.abs(base_price) > 0
+                                    percentage_diff = math.abs(base_price - compare_price) / math.abs(base_price) * 100
+                                    
+                                    if percentage_diff <= 0.09
+                                        array.push(group_prices, compare_price)
+                                        array.set(used_prices, j, true)
+                    
+                    // Calculate average of grouped prices and add to special array
+                    // Only add if there are at least 2 prices in the group (meaning there's overlap)
+                    if array.size(group_prices) >= 2
+                        sum = 0.0
+                        for k = 0 to array.size(group_prices) - 1
+                            sum := sum + array.get(group_prices, k)
+                        average_price = sum / array.size(group_prices)
+                        array.push(special_arr, average_price)
 
 // Get start and end bar indices
 start_idx = getBarIndexAtTime(start_date)
@@ -120,15 +201,49 @@ if not na(first_price) and not na(second_price) and not na(third_price)
     initial_range := math.abs(second_price - first_price)
     correction_ratio := math.abs(first_price - third_price) / initial_range
     tmp = 1 / correction_ratio
-    array.clear(abc_array)
+    diff = math.abs(first_price - third_price)
 
-    abc_buhel_price := third_price + initial_range
-    array.push(abc_array, third_price + tmp * initial_range)
+    array.clear(abc_array)
+    array.clear(abc_y_array)
+    array.clear(aba_array)
+    array.clear(fibo_doub_array)
+    array.clear(fibo_def_array)
 
     tmp_abc = tmp
     tmp_abc_1 = tmp
+    tmp_abc_y = tmp
+    tmp_abc_y_1 = tmp
 
     if (is_uptrend)
+        // abc_buhel_price := third_price + initial_range
+        array.push(abc_array, third_price + math.abs(first_price - third_price))
+        if math.abs(first_price - third_price) * 2 <= second_price
+            array.push(abc_array, third_price + math.abs(first_price - third_price) * 2)
+
+        array.push(abc_array, third_price + math.abs(first_price - third_price) / 2)
+        array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
+        
+        b = 2
+        while b < 9
+            array.push(aba_array, second_price + diff / b)
+            b := b * 2
+        a = 1
+        while a < 32
+            array.push(aba_array, second_price + diff * a)
+            a := a * 2
+
+        f = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_doub_array, third_price + initial_range * f)
+            f := f * 2
+        
+        array.push(fibo_def_array, first_price + initial_range * 1.272)
+        array.push(fibo_def_array, first_price + initial_range * 1.1278)
+        f_1 = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_def_array, first_price + initial_range * f_1)
+            f_1 := f_1 * 1.618
+
         while tmp_abc > 2.1
             tmp_abc := tmp_abc / 2
             array.push(abc_array, third_price + (tmp_abc) * initial_range)
@@ -136,7 +251,43 @@ if not na(first_price) and not na(second_price) and not na(third_price)
         while tmp_abc_1 < 15
             array.push(abc_array, third_price + (tmp_abc_1) * initial_range)
             tmp_abc_1 := tmp_abc_1 * 2
+        
+        while tmp_abc_y > 1.16
+            tmp_abc_y := math.sqrt(tmp_abc_y)
+            array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
+        
+        while tmp_abc_y_1 < 15
+            tmp_abc_y_1 := tmp_abc_y_1 * tmp_abc_y_1
+            array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y_1)))
+
     else
+        array.push(abc_array, third_price - (first_price - third_price))
+        array.push(abc_array, third_price - (first_price - third_price) / 2)
+        array.push(abc_y_array, third_price + ((second_price - third_price) * (tmp_abc_y)))
+
+        // abc_buhel_price := third_price - initial_range
+        
+        b = 2
+        while b < 9
+            array.push(aba_array, second_price - diff / b)
+            b := b * 2
+        a = 1
+        while a < 32
+            array.push(aba_array, second_price - diff * a)
+            a := a * 2
+        
+        f = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_doub_array, third_price - initial_range * f)
+            f := f * 2
+        
+        array.push(fibo_def_array, first_price - initial_range * 1.272)
+        array.push(fibo_def_array, first_price - initial_range * 1.12783)
+        f_1 = 1.618
+        for i = 0 to 6  // 7 iterations (0,1,2,3,4,5,6)
+            array.push(fibo_def_array, first_price - initial_range * f_1)  // FIXED: using f_1 instead of f
+            f_1 := f_1 * 1.618
+
         while tmp_abc > 2.1
             tmp_abc := tmp_abc / 2
             array.push(abc_array, third_price - (tmp_abc) * initial_range)
@@ -144,7 +295,25 @@ if not na(first_price) and not na(second_price) and not na(third_price)
         while tmp_abc_1 < 15
             array.push(abc_array, third_price - (tmp_abc_1) * initial_range)
             tmp_abc_1 := tmp_abc_1 * 2
+        
+        while tmp_abc_y > 1.16
+            tmp_abc_y := math.sqrt(tmp_abc_y)
+            array.push(abc_y_array, third_price - (math.abs(second_price - third_price) * (tmp_abc_y)))
+        
+        while tmp_abc_y_1 < 15
+            tmp_abc_y_1 := tmp_abc_y_1 * tmp_abc_y_1
+            array.push(abc_y_array, third_price - (math.abs(second_price - third_price) * (tmp_abc_y_1)))
 
+    // Create special array after all arrays are populated
+    createSpecialArray()
+
+    var float closest_diff = na
+    if time >= start_date and time <= end_date
+        current_price = (price_high + price_low) / 2 
+        current_diff = math.abs(current_price - abc_buhel_price)
+        if na(closest_diff) or current_diff < closest_diff
+            closest_diff := current_diff
+            my_idx := bar_index
 
 // Draw lines and labels on the last bar
 if barstate.islast and not na(start_idx) and not na(end_idx)
@@ -155,44 +324,118 @@ if barstate.islast and not na(start_idx) and not na(end_idx)
         first_line = line.new(x1=start_idx, y1=first_price, x2=end_idx, y2=first_price, color=first_color, width=2, style=line.style_solid, extend=line_ext)
         array.push(lines_array, first_line)
         if show_labels
-            first_label_text = is_uptrend ? str.tostring(first_price, "#.####") : str.tostring(first_price, "#.####")
+            // first_label_text = is_uptrend ? str.tostring(first_price, "#.####") : str.tostring(first_price, "#.####")
+            first_label_text = "0"
             first_label = label.new(x=first_idx, y=first_price, text=first_label_text, color=first_color, textcolor=color.white, size=size.normal, style=label.style_label_down)
             array.push(labels_array, first_label)
     if not na(second_price)
         second_line = line.new(x1=start_idx, y1=second_price, x2=end_idx, y2=second_price, color=second_color, width=2, style=line.style_solid, extend=line_ext)
         array.push(lines_array, second_line)
         if show_labels
-            second_label_text = is_uptrend ? str.tostring(second_price, "#.####") : str.tostring(second_price, "#.####")
+            // second_label_text = is_uptrend ? str.tostring(second_price, "#.####") : str.tostring(second_price, "#.####")
+            second_label_text = "1"
             second_label = label.new(x=second_idx, y=second_price, text=second_label_text, color=second_color, textcolor=color.white, size=size.normal, style=label.style_label_up)
             array.push(labels_array, second_label)
     if not na(abc_buhel_price)
-        my_line = line.new(x1=start_idx, y1=abc_buhel_price, x2=end_idx, y2=abc_buhel_price, color=my_color, width=1, style=line.style_solid, extend=line_ext)
+        my_line = line.new(x1=start_idx, y1=abc_buhel_price, x2=end_idx, y2=abc_buhel_price, color=aba_color, width=2, style=line.style_solid, extend=line_ext)
         array.push(lines_array, my_line)
         if show_labels
-            my_label = label.new(x=my_idx, y=abc_buhel_price, text="my (ABA)\n" + str.tostring(abc_buhel_price, "#.####"), color=my_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
+            my_label = label.new(x=my_idx, y=abc_buhel_price, text="ABA", color=aba_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
             array.push(labels_array, my_label)
     if not na(third_price)
         third_line = line.new(x1=third_line_start, y1=third_price, x2=end_idx, y2=third_price, color=third_color, width=2, style=line.style_solid, extend=line_ext)
         array.push(lines_array, third_line)
         if show_labels
-            third_label_text = is_uptrend ? str.tostring(third_price, "#.####") : str.tostring(third_price, "#.####")
+            third_label_text = is_uptrend ? str.tostring(correction_ratio, "#.###") : str.tostring(correction_ratio, "#.###")
             third_label = label.new(x=third_idx, y=third_price, text=third_label_text, color=third_color, textcolor=color.white, size=size.normal, style=label.style_label_left)
             array.push(labels_array, third_label)
     if not na(first_idx) and not na(second_idx)
         trend_line = line.new(x1=first_idx, y1=first_price, x2=second_idx, y2=second_price, color=color.gray, width=1, style=line.style_dotted, extend=extend.none)
         array.push(lines_array, trend_line)
+
     if show_array_lines and array.size(abc_array) > 0
         for i = 0 to array.size(abc_array) - 1
             array_value = array.get(abc_array, i)
-            current_array_color = i == 0 ? my_color : color.new(array_color, 0)
-            line_width = i == 0 ? 2 : 1
-            line_style = i == 0 ? line.style_solid : line.style_dashed
+            current_array_color = color.new(array_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
             array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
             array.push(lines_array, array_line)
-            if show_labels and i > 0 and i < 6
+            if show_labels and i < 6
                 label_text = "Lvl" + str.tostring(i) + "\n" + str.tostring(array_value, "#.####")
                 label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * i)
                 array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+    
+    if show_array_lines and array.size(abc_y_array) > 0
+        for j = 0 to array.size(abc_y_array) - 1
+            array_value = array.get(abc_y_array, j)
+            current_array_color = color.new(array_y_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and j < 6
+                label_text = "Lvl" + str.tostring(j) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * j)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+    
+    if show_array_lines and array.size(aba_array) > 0
+        for k = 0 to array.size(aba_array) - 1
+            array_value = array.get(aba_array, k)
+            current_array_color = color.new(aba_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and k < 6
+                label_text = "Lvl" + str.tostring(k) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * k)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+
+    if show_array_lines and array.size(fibo_def_array) > 0
+        for l = 0 to array.size(fibo_def_array) - 1
+            array_value = array.get(fibo_def_array, l)
+            current_array_color = color.new(fibo_def_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and l < 6
+                label_text = "Lvl" + str.tostring(l) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * l)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+
+    if show_array_lines and array.size(fibo_doub_array) > 0
+        for m = 0 to array.size(fibo_doub_array) - 1
+            array_value = array.get(fibo_doub_array, m)
+            current_array_color = color.new(fibo_doub_color, 0)
+            line_width = 1
+            line_style = line.style_dashed
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and m < 6
+                label_text = "Lvl" + str.tostring(m) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.1 * m)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_right)
+                array.push(labels_array, array_label)
+
+    // Draw special array lines
+    if show_array_lines and array.size(special_arr) > 0
+        for n = 0 to array.size(special_arr) - 1
+            array_value = array.get(special_arr, n)
+            current_array_color = color.new(special_arr_color, 0)
+            line_width = 2
+            line_style = line.style_solid
+            array_line = line.new(x1=start_idx, y1=array_value, x2=end_idx, y2=array_value, color=current_array_color, width=line_width, style=line_style, extend=line_ext)
+            array.push(lines_array, array_line)
+            if show_labels and n < 10 // Show labels for first 10 special levels
+                label_text = "Special" + str.tostring(n) + "\n" + str.tostring(array_value, "#.####")
+                label_x = start_idx + math.round((end_idx - start_idx) * 0.15 * n)
+                array_label = label.new(x=label_x, y=array_value, text=label_text, color=current_array_color, textcolor=color.white, size=size.small, style=label.style_label_left)
                 array.push(labels_array, array_label)
 
 // Create information table with expanded size for array info
@@ -206,7 +449,7 @@ if barstate.islast
     third_label_text = is_uptrend ? "2nd Low After High" : "2nd High After Low"
     table.cell(info_table, 0, 1, first_label_text, text_color=first_color, text_size=size.small)
     table.cell(info_table, 1, 1, str.tostring(first_price, "#.####"), text_color=color.black, text_size=size.small)
-    table.cell(info_table, 0, 2, "ABA", text_color=my_color, text_size=size.small) 
+    table.cell(info_table, 0, 2, "ABA", text_color=aba_color, text_size=size.small) 
     table.cell(info_table, 1, 2, str.tostring(abc_buhel_price, "#.####"), text_color=color.black, text_size=size.small)
     table.cell(info_table, 0, 3, second_label_text, text_color=second_color, text_size=size.small)
     table.cell(info_table, 1, 3, str.tostring(second_price, "#.####"), text_color=color.black, text_size=size.small)
